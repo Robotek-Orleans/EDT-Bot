@@ -1,0 +1,14 @@
+{
+	"javascript.preferences.quoteStyle": "single",
+	"[javascript]": {
+		"editor.defaultFormatter": "vscode.typescript-language-features"
+	},
+	"javascript.preferences.importModuleSpecifierEnding": "js",
+	"javascript.suggest.completeFunctionCalls": true,
+	"prettier.useTabs": true,
+	"prettier.singleQuote": true,
+	"prettier.arrowParens": "avoid",
+	"prettier.jsxSingleQuote": true,
+	"prettier.printWidth": 150,
+	"editor.insertSpaces": false
+}

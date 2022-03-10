@@ -1,0 +1,59 @@
+Interaction de discord.js
+
+
+https://discord.com/developers/docs/interactions/application-commands
+
+
+type ApplicationCommandOptionType https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-type
+	1: SUB_COMMAND
+	2: SUB_COMMAND_GROUP : groupe de SUB_COMMAND, exemple : l'interaction reçue a un type SUB_COMMAND_GROUP
+	3: STRING
+	4: INTEGER
+	5: BOOLEAN
+	6: USER
+	7: CHANNEL
+	8: ROLE
+	peut se faire en choix multiple (https://discord.com/developers/docs/interactions/application-commands#authorizing-your-application)
+ID			Nom					Enfants		Peut Executer
+			Interaction			1, 2		oui
+2			SUB_COMMAND_GROUP	1			non
+1			SUB_COMMAND			3 à 8		oui
+3 à 8		*					non			oui
+
+exemple :
+[{
+  options: [{
+    options: [
+      { value: 'aze', name: 'very_long' },
+      { value: 123, name: 'number' },
+      { value: 'a', name: 'string' },
+      { value: '494587865775341578', name: 'user' },
+      { value: true, name: 'bool' },
+      { value: '320936324636868608', name: 'role' }
+    ],
+    name: 'long'
+  }],
+  name: 'commandline'
+}]
+=> executer l'interaction :
+- Si pas d'arg on execute la commande
+- On execute le dernier arg SUB_COMMAND
+	(et on lui passe les arguments en paramètre)
+
+
+
+
+type InteractionResponseType https://discord.com/developers/docs/interactions/receiving-and-responding#interaction-response-object-interaction-callback-type
+		Constants.InteractionResponseTypes
+	1: Pong
+	4: utilisé pour les retours
+	5: acknowledgement (on renvoie rien mais on affiche l'interaction)
+
+Application Command: https://discord.com/developers/docs/interactions/application-commands#create-global-application-command
+	name: entrée de la commande
+	description: petit texte de description (pas visible si la commande peut pas se faire toute seule)
+	options: [] facultatif, les arguments qui suivent https://discord.com/developers/docs/interactions/application-commands#application-command-object-application-command-option-structure
+
+
+N.B. Lorsqu'une interaction affiche la commande utilisateur, cette dernière est un message avec le préfix '</COMMAND:BOT_ID> '
+Le retour du bot n'a rien de particulier, c'est un message

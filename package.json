@@ -1,0 +1,30 @@
+{
+  "name": "edt-bot",
+  "version": "0.0.0",
+  "description": "EDT-Bot de Robotek Orléans",
+  "main": "index.js",
+  "author": {
+    "name": "Jiogo18"
+  },
+  "scripts": {
+    "test": "node index.js WIP",
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": "16.x",
+    "npm": "8.x"
+  },
+  "dependencies": {
+    "colors": "^1.4.0",
+    "discord.js": "^13.6.0",
+    "dotenv": "^16.0.0",
+    "https": "^1.0.0",
+    "pg": "^8.7.3"
+  },
+  "homepage": "https://github.com/Robotek-Orleans/EDT-Bot",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Robotek-Orleans/EDT-Bot"
+  }
+}
