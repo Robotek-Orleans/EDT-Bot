@@ -81,7 +81,7 @@ export default {
 	},
 
 	setBot(bot) {
-		const SallesJson = JSON.parse(fs.readFileSync('./.cache/Salles.json'));
+		const SallesJson = JSON.parse(fs.readFileSync('./commands/EDT/Salles.json'));
 		SALLES.push(...SallesJson.amphi.map(name => new Salle(name, 'amphi')));
 		SALLES.push(...SallesJson.CM.map(name => new Salle(name, 'CM')));
 		SALLES.push(...SallesJson.TD.map(name => new Salle(name, 'TD')));
