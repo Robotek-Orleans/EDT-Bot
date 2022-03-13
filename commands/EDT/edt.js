@@ -291,6 +291,9 @@ export class EDTManager {
 	}
 
 	reloadCurrentEDT() {
+		if (!fs.existsSync(EDT_DIR)) {
+			fs.mkdirSync(EDT_DIR, { recursive: true });
+		}
 		const edtFiles = fs.readdirSync(EDT_DIR).filter(f => f.endsWith('.vcs'));
 		this.currentEDT = edtFiles.map(file => new EDTSpe(file));
 		if (!this.lastUpdate)

@@ -99,12 +99,7 @@ export default {
  * Get a small description here the bot is
  */
 function getBotLocation() {
-	if (process.env.HEROKU) {
-		return 'Heroku';
-	} else if (process.env.COMPUTERNAME) {
-		return process.env.COMPUTERNAME;
-	}
-	return 'Unkown';
+	return process.env.HOST;
 }
 
 function getNumberWithSignificantFigure(x, number_of_figure) {
@@ -141,9 +136,9 @@ function getInfo(bot) {
 	retour.addField(
 		'Ressources',
 		`Cpu : ${cpuUsage.user} / ${cpuUsage.system}\n` +
-			`Mémoire : ${getReadableOctetSize(memoryUsage.heapUsed)} / ${getReadableOctetSize(memoryUsage.heapTotal)} / ${getReadableOctetSize(
-				memoryUsage.rss
-			)}`
+		`Mémoire : ${getReadableOctetSize(memoryUsage.heapUsed)} / ${getReadableOctetSize(memoryUsage.heapTotal)} / ${getReadableOctetSize(
+			memoryUsage.rss
+		)}`
 	);
 
 	return retour;
