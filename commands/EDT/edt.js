@@ -76,11 +76,10 @@ export default {
 function DateFromVCSDate(evDate) {
 	if (!evDate) return new Date(0);
 	const match = evDate.match(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/);
-	return new Date(match[1], match[2] - 1, match[3], match[4], match[5], match[6]);
+	return new Date(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`);
 }
 
-var firstDEbug = true;
-class EDTEvent {
+export class EDTEvent {
 	/** @type {Date} */
 	DTSTART;
 	/** @type {Date} */
@@ -157,7 +156,7 @@ class EDTSpe {
 		const events = data.split('BEGIN:VEVENT').filter((ev, i) => i != 0).map(ev => EDTEvent.fromVCS(ev));
 
 		const msForOneDay = 83400e3;
-		this.weekEvents = events.filter(ev => (Date.now() - msForOneDay) <= ev.DTEND.getTime() && ev.DTSTART.getTime() <= (Date.now() + 14 * msForOneDay));
+		this.weekEvents = events.filter(ev => (Date.now() - 30 * msForOneDay) <= ev.DTEND.getTime() && ev.DTSTART.getTime() <= (Date.now() + 60 * msForOneDay));
 		this.LAST_MODIFIED = events.map(ev => ev.LAST_MODIFIED).filter(a => a).reduce((a, b) => a < b ? b : a, new Date(0));
 		this.event_count = events.length;
 	}
@@ -301,7 +300,7 @@ export class EDTManager {
 	}
 
 	/**
-	 * @param {{locations:string[], from:Date, to:Date, now:Date, fromH:number, toH:number}} filter
+	 * @param {{locations:string[], from:Date, to:Date, now:number, fromH:number, toH:number}} filter
 	 * @param {ReceivedCommand} cmdData
 	 */
 	getRecentEvents(filter, cmdData) {
@@ -313,6 +312,7 @@ export class EDTManager {
 		const to = filter?.to || new Date(now + (filter.toH || 5) * 3600e3);
 		var events = this.currentEDT
 			.map(spe => spe.weekEvents.filter(ev => from <= ev.DTEND && ev.DTSTART <= to)).reduce((a, b) => [...a, ...b], [])
+		console.log('Salle dans : ', new Date(now), from, to, events.length);
 		if (filter.locations)
 			events = events.filter(ev => filter.locations.find(salle => ev.LOCATION.includes(salle)));
 
