@@ -304,7 +304,7 @@ export class EDTManager {
 	 * @param {ReceivedCommand} cmdData
 	 */
 	getRecentEvents(filter, cmdData) {
-		if (this.lastUpdate.getTime() + 7 * 86400e3 < Date.now()) {
+		if (this.lastUpdate?.getTime() + 7 * 86400e3 < Date.now()) {
 			this.downloadAndAknowledge(cmdData); // Update after the command
 		}
 		const now = filter.now || Date.now();
@@ -312,7 +312,6 @@ export class EDTManager {
 		const to = filter?.to || new Date(now + (filter.toH || 5) * 3600e3);
 		var events = this.currentEDT
 			.map(spe => spe.weekEvents.filter(ev => from <= ev.DTEND && ev.DTSTART <= to)).reduce((a, b) => [...a, ...b], [])
-		console.log('Salle dans : ', new Date(now), from, to, events.length);
 		if (filter.locations)
 			events = events.filter(ev => filter.locations.find(salle => ev.LOCATION.includes(salle)));
 
