@@ -1,6 +1,6 @@
 {
   "name": "edt-bot",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "EDT-Bot de Robotek Orléans",
   "main": "index.js",
   "author": {

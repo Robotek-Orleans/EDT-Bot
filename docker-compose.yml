@@ -1,0 +1,25 @@
+version: "3"
+services:
+  node:
+    image: "node:17-alpine"
+    restart: always
+    user: "node"
+    working_dir: /home/node/app
+    env_file:
+      - EDT-Bot.env
+    environment:
+      - NODE_ENV=production
+      - docker=3
+    volumes:
+      - ./:/home/node/app
+      - ./.cache/:/var/lib/edt-bot/cache
+    command: "npm start"
+    depends_on:
+      - db
+  db:
+    image: postgres:latest
+    restart: always
+    env_file:
+      - database.env
+    volumes:
+      - ./.cache/db-data/:/var/lib/postgresql/data/
