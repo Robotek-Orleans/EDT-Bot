@@ -2,7 +2,7 @@ import {
 	CommandLevelOptions,
 	ReceivedCommand
 } from '../../bot/command/received.js';
-import { EDTEvent, EDTManager } from './edt.js';
+import { EDTEvent, EDTFilter, EDTManager } from './edt.js';
 import fs from 'fs';
 import { EmbedMaker } from '../../lib/messageMaker.js';
 import { getDiscordTimestamp, getDurationTime } from '../../lib/date.js';
@@ -38,7 +38,7 @@ export default {
 	execute(cmdData) {
 		var now = Date.now();
 
-		const events = manager.getRecentEvents({ now }, cmdData);
+		const events = manager.getRecentEvents(new EDTFilter({ now }), cmdData);
 		warnIfSalleUnknown(events);
 
 		var embed = new EmbedMaker('Salle EDT', `EDTs téléchargés il y a ${getDurationTime(now - manager.lastUpdate?.getTime())}.`);
@@ -83,6 +83,18 @@ export default {
 		}
 		filter = filter.replace(/ *$/, '');
 
+		const matchDescription = filter.match(/ *(A\d[^ ]*|\dA[^ ]*) */i)
+			|| filter.match(/ *(PeiP)(\d) */i);
+		var description = undefined;
+		if (matchDescription) {
+			if (matchDescription[1].match(/PeiP/i))
+				description = ['A' + matchDescription[2]];
+			else
+				description = [matchDescription[1].replace(/-/g, ' ')];
+			filter = filter.replace(matchDescription[0], ' ');
+		}
+		filter = filter.replace(/ *$/, '');
+
 		var salles = getSalles({ any: filter });
 		if (salles.length === 0) {
 			return new EmbedMaker('Salle EDT', `Aucune salle ne correspond à votre recherche, donnez un nom ou un type de salle`);
@@ -91,7 +103,9 @@ export default {
 			return getSalleInfo(salles[0], now);
 		}
 		else {
-			const salles_info = getSallesInfo(salles.length === SALLES.length ? undefined : salles, now);
+			if (salles.length === SALLES.length)
+				salles = undefined; // no filter
+			const salles_info = getSallesInfo(new EDTFilter({ locations: salles?.map(s => s.name), now, description }));
 
 			var description = `${salles_info.length} salles correspondent à votre recherche :`;
 			const max_size = 2048 - '...'.length;
@@ -186,23 +200,22 @@ function getSalles(filter) {
  * @param {number} now
  */
 function getSalleInfo(salle, now) {
-	const occupee = manager.getRecentEvents({ locations: [salle.name], now })
+	const occupee = manager.getRecentEvents(new EDTFilter({ locations: [salle.name], now }))
 		.map(ev => `de ${getDiscordTimestamp(ev.DTSTART, 't')} à ${getDiscordTimestamp(ev.DTEND, 't')}`)
 		.join('\n');
 	return new EmbedMaker(`Salle ${salle.name} `, `Type: ${salle.type} `).addField('Occupée', occupee || "Libre pour au moins 4 heures", true);
 }
 
 /**
- * @param {Salle[]} salles `undefined` if no filter
- * @param {number} now
+ * @param {EDTFilter} filter
  */
-function getSallesInfo(salles, now) {
-	const events = manager.getRecentEvents({ locations: salles?.map(s => s.name), now });
+function getSallesInfo(filter) {
+	const events = manager.getRecentEvents(filter);
 	warnIfSalleUnknown(events);
 
-	const occupee = (salles || SALLES).map(salle => manager.joinEventsPeriod(events.filter(ev => ev.LOCATION.includes(salle.name)))
+	const occupee = (filter.locations || SALLES).map(salle => manager.joinEventsPeriod(events.filter(ev => ev.LOCATION.includes(salle.name)))
 		.map(p => `de ${getDiscordTimestamp(p.DTSTART, 't')} à ${getDiscordTimestamp(p.DTEND, 't')}`).join(', '));
-	return (salles || SALLES).map((salle, i) => salle.name + ' : ' + (occupee[i] ? `Occupée ${occupee[i]}` : `Libre`));
+	return (filter.locations || SALLES).map((salle, i) => salle.name + ' : ' + (occupee[i] ? `Occupée ${occupee[i]}` : `Libre`));
 }
 
 /**

@@ -1,9 +1,9 @@
 import DiscordBot from '../../bot/bot.js';
 import fs from 'fs';
-import { CommandLevelOptions, ReceivedCommand } from '../../bot/command/received.js';
+import { ReceivedCommand } from '../../bot/command/received.js';
 import https from 'https';
 import { EmbedMaker } from '../../lib/messageMaker.js';
-import { getDurationTime, getFrenchDate } from '../../lib/date.js';
+import { getDiscordTimestamp } from '../../lib/date.js';
 
 /**
  * @type {DiscordBot}
@@ -13,8 +13,6 @@ var bot;
  * @type {EDTManager}
  */
 var manager;
-
-const EDT_DIR = './.cache/EDT';
 
 export default {
 	name: 'edt',
@@ -49,14 +47,31 @@ export default {
 			 * @param {ReceivedCommand} cmdData
 			 */
 			execute(cmdData) {
+				var description = manager.lastUpdate ? `Les EDTs ont été téléchargés le ${getDiscordTimestamp(manager.lastUpdate)}` : `Les EDTs ne sont pas téléchargés`;
+				const dlStarted = manager.downloadStatus.downloadStartedAt;
+				const dlEnded = manager.downloadStatus.downloadEndedAt;
+				const downloading = dlStarted && (!dlEnded || (dlEnded < dlStarted));
+				if (downloading) {
+					description += `\nLe téléchargement a commencé le ${getDiscordTimestamp(dlEnded)}`;
 
-				var description = manager.lastUpdate ?
-					`Les EDTs ont été actualisé ${getFrenchDate(manager.lastUpdate)}` :
-					`Les EDTs n'ont pas été actualisés depuis plus de ${getDurationTime(process.uptime() * 1000)}`;
+					if (manager.downloadStatus.downloaded)
+						bot.consoleLogger.error(`EDT downloading and downloaded`, dlStarted, dlEnded);
+					if (manager.downloadStatus.edtDownloaded)
+						description += `\nEDT téléchargés : ` + manager.downloadStatus.edtDownloaded.join(', ');
+				} else if (dlEnded) {
+					description += `\nLe téléchargement a terminé le ${getDiscordTimestamp(dlEnded)}`;
+					if (manager.downloadStatus.downloaded)
+						description += ' (Succès)';
+					else
+						description += ' (Échec)';
+				}
+				if (manager.currentEDT.length) {
+					description += '\n' + manager.currentEDT.map(edt => edt.weekEvents.length).reduce((a, b) => a + b)
+						+ '/' + manager.currentEDT.map(edt => edt.event_count).reduce((a, b) => a + b)
+						+ ` évenements sont chargés pour ${manager.currentEDT.length} EDT`;
+				}
 
-				description += `\nLes EDTs utilisés sont ceux de 2021-2022.`;
-
-				var embed = new EmbedMaker('EDT', description);
+				var embed = new EmbedMaker('EDT 2021-2022', description);
 
 				return embed;
 			}
@@ -80,17 +95,29 @@ function DateFromVCSDate(evDate) {
 }
 
 export class EDTEvent {
-	/** @type {Date} */
+	/**
+	   @type {Date}
+	 */
 	DTSTART;
-	/** @type {Date} */
+	/**
+	   @type {Date}
+	 */
 	DTEND;
-	/** @type {Date} */
+	/**
+	   @type {Date}
+	 */
 	CREATED;
-	/** @type {Date} */
+	/**
+	   @type {Date}
+	 */
 	LAST_MODIFIED;
-	/** @type {string} */
+	/**
+	   @type {string}
+	 */
 	SUMMARY
-	/** @type {string[]} */
+	/**
+	 * @type {string[]}
+	 */
 	LOCATION;
 	/** @type {string} */
 	DESCRIPTION;
@@ -148,10 +175,10 @@ class EDTSpe {
 	 * @param {string} file
 	 */
 	constructor(file) {
-		var buffer = fs.readFileSync(EDT_DIR + '/' + file);
+		var buffer = fs.readFileSync(process.env.EDT_DIR + '/' + file);
 		var data = buffer.toString();
 		this.name = file.match(/EDT-Univ-Orleans-(.+)\.vcs/)?.[1] || file;
-		this.CN = data.match(/.*\nCN:"(.+)\n.*"/)?.[1];
+		this.CN = data.match(/.*\nCN:"(.+)\n.*/)?.[1];
 		this.DTSTAMP = DateFromVCSDate(data.match(/.*\nDTSTAMP:([^\n]+)\n.*/)?.[1]);
 		const events = data.split('BEGIN:VEVENT').filter((ev, i) => i != 0).map(ev => EDTEvent.fromVCS(ev));
 
@@ -168,6 +195,10 @@ export class EDTManager {
 	 * @type {Date}
 	 */
 	lastUpdate;
+	/**
+	 * @type {{downloaded: boolean, edtDownloaded: string[], downloadEndedAt: Date, downloadStartedAt: Date }}
+	 */
+	downloadStatus = { downloaded: false };
 
 	/**
 	 * @type {EDTSpe[]}
@@ -175,10 +206,12 @@ export class EDTManager {
 	currentEDT = [];
 
 	constructor() {
-		setTimeout(() => process.env.WIPOnly ? this.reloadCurrentEDT() : this.downloadEDTs(), 1000);
+		setTimeout(() => this.reloadEDT(), 1000);
 	}
 
-	get EDT_Export() { return "https://www.univ-orleans.fr/EDTWeb/export"; }
+	get EDT_Export() {
+		return "https://www.univ-orleans.fr/EDTWeb/export";
+	}
 	get EDTs2022() {
 		return [
 			['A1', '4810'],
@@ -210,7 +243,8 @@ export class EDTManager {
 			['IoT', '23'],
 			['Master-AESM', '1656'],
 		];
-		/** JavaScript pour renouveler les ressources sur l'ent (sélectionner Polytech et inspecter une des spé pour pouvoir détecter select[name=filieres])
+		/**
+		   JavaScript pour renouveler les ressources sur l'ent (sélectionner Polytech et inspecter une des spé pour pouvoir détecter select[name=filieres])
 			var f = document.querySelector('select[name=filieres]')
 			var child = Array.from(f.children)
 			var calendars = child.map(option => [option.innerHTML.replaceAll(' ', '-'), option.value])
@@ -218,9 +252,14 @@ export class EDTManager {
 		 */
 	}
 
+	mkEDTDir() {
+		if (!fs.existsSync(process.env.EDT_DIR)) {
+			fs.mkdirSync(process.env.EDT_DIR, { recursive: true });
+		}
+	}
 
 	getEDTPath(name) {
-		return EDT_DIR + `/EDT-Univ-Orleans-${name}.vcs`;
+		return process.env.EDT_DIR + `/EDT-Univ-Orleans-${name}.vcs`;
 	}
 
 	/**
@@ -228,7 +267,7 @@ export class EDTManager {
 	 * @param {string} ressource
 	 */
 	downloadEDT(name, ressource) {
-		const url = this.EDT_Export + `?project=2021-2022&resources=${ressource}&type=ical`;
+		const url = process.env.EDT_EXPORT.replace('{resources}', ressource);
 
 		return new Promise((res, rej) => {
 			const req = https.get(url, result => {
@@ -236,19 +275,24 @@ export class EDTManager {
 					rej(`error: ${result.statusCode} : ` + result.statusMessage);
 					return;
 				}
-				/** @type {Buffer} */
+				/**
+				 * @type {Buffer}
+				 */
 				var data = undefined;
-				result.on('data', /** @param {Buffer} chunk */ chunk => {
-					if (data)
-						data += chunk;
-					else
-						data = chunk;
+				result.on('data', /**
+								 @param {Buffer} chunk
+							   */
+					chunk => {
+						if (data)
+							data += chunk;
+						else
+							data = chunk;
 
-					if (result.complete || data.includes('END:VCALENDAR')) {
-						fs.writeFileSync(this.getEDTPath(name), data.toString());
-						res(true);
-					}
-				});
+						if (result.complete || data.includes('END:VCALENDAR')) {
+							fs.writeFileSync(this.getEDTPath(name), data.toString());
+							res(true);
+						}
+					});
 			});
 			req.on('error', rej);
 			req.on('close', rej);
@@ -257,23 +301,28 @@ export class EDTManager {
 	}
 
 	async downloadEDTs() {
-		if (Date.now() - this.lastUpdate?.getTime() < 10000)
+		if (Date.now() - this.downloadStatus.downloadStartedAt?.getTime() < 10000)
 			return;
-		this.lastUpdate = new Date();
+		this.downloadStatus.downloadStartedAt = new Date();
+		this.downloadStatus.downloaded = false;
+		this.downloadStatus.edtDownloaded = [];
 
-		if (!fs.existsSync(EDT_DIR)) {
-			fs.mkdirSync(EDT_DIR, { recursive: true });
-		}
+		this.mkEDTDir();
 
 		try {
-			await Promise.all(this.EDTs2022.map(EDT => this.downloadEDT(EDT[0], EDT[1])));
-			this.reloadCurrentEDT();
+			bot.consoleLogger.log('EDT Downloading...');
+			await Promise.all(this.EDTs2022.map(async EDT => { await this.downloadEDT(EDT[0], EDT[1]); this.downloadStatus.edtDownloaded.push(EDT); }));
+			bot.consoleLogger.log('EDT Downloaded => reloading');
+			this.downloadStatus.downloadEndedAt = new Date();
+			this.reloadEDT();
 
 			bot.consoleLogger.log('EDT Downloaded');
+			this.downloadStatus.downloaded = true;
 			return true;
-		}
-		catch (err) {
+		} catch (err) {
 			bot.consoleLogger.error("EDT Can't be downloaded", err);
+			this.downloadStatus.downloadEndedAt = new Date();
+			this.downloadStatus.downloaded = false;
 			return false;
 		}
 	}
@@ -289,33 +338,38 @@ export class EDTManager {
 		}
 	}
 
-	reloadCurrentEDT() {
-		if (!fs.existsSync(EDT_DIR)) {
-			fs.mkdirSync(EDT_DIR, { recursive: true });
-		}
-		const edtFiles = fs.readdirSync(EDT_DIR).filter(f => f.endsWith('.vcs'));
+	reloadEDT() {
+		this.mkEDTDir();
+		const edtFiles = fs.readdirSync(process.env.EDT_DIR).filter(f => f.endsWith('.vcs'));
 		this.currentEDT = edtFiles.map(file => new EDTSpe(file));
-		if (!this.lastUpdate)
-			this.lastUpdate = this.currentEDT[0]?.DTSTAMP;
+		this.lastUpdate = this.currentEDT[0]?.DTSTAMP;
+
+		if (this.currentEDT.find(edt => Math.abs(edt.DTSTAMP.getTime() - this.lastUpdate.getTime()) >= 5000)) {
+			bot.consoleLogger.warn(`EDT have different DTSTAMP`, this.currentEDT.reduce((p, c) => { p[c.name] = c.DTSTAMP; return p; }, {}));
+		}
+		if (this.isEDTOld()) {
+			bot.consoleLogger.log(`EDT Reloaded but too old (${this.downloadStatus.lastUpdate})`);
+			this.downloadEDTs();
+		} else
+			bot.consoleLogger.log(`EDT Reloaded`);
+	}
+
+	isEDTOld() {
+		return this.lastUpdate?.getTime() + 7 * 86400e3 < Date.now();
 	}
 
 	/**
-	 * @param {{locations:string[], from:Date, to:Date, now:number, fromH:number, toH:number}} filter
+	 * @param {EDTFilter} filter
 	 * @param {ReceivedCommand} cmdData
 	 */
 	getRecentEvents(filter, cmdData) {
-		if (this.lastUpdate?.getTime() + 7 * 86400e3 < Date.now()) {
+		if (this.isEDTOld()) {
 			this.downloadAndAknowledge(cmdData); // Update after the command
 		}
-		const now = filter.now || Date.now();
-		const from = filter?.from || new Date(now + (filter.fromH || -0.6) * 3600e3);
-		const to = filter?.to || new Date(now + (filter.toH || 5) * 3600e3);
-		var events = this.currentEDT
-			.map(spe => spe.weekEvents.filter(ev => from <= ev.DTEND && ev.DTSTART <= to)).reduce((a, b) => [...a, ...b], [])
-		if (filter.locations)
-			events = events.filter(ev => filter.locations.find(salle => ev.LOCATION.includes(salle)));
 
-		return events;
+		return this.currentEDT
+			.map(spe => spe.weekEvents.filter(event => filter.matchFilter(event)))
+			.reduce((a, b) => [...a, ...b], [])
 	}
 
 	/**
@@ -331,12 +385,65 @@ export class EDTManager {
 		for (const event of eventsSorted) {
 			if (last && event.DTSTART.getTime() <= last.DTEND.getTime() + demi_heure) {
 				last.DTEND = event.DTEND;
-			}
-			else {
+			} else {
 				last = { DTSTART: event.DTSTART, DTEND: event.DTEND };
 				periods.push(last);
 			}
 		}
 		return periods;
+	}
+}
+
+export class EDTFilter {
+	/**
+	 * @type {number}
+	 */
+	now;
+	/**
+	 * @type {number}
+	 */
+	fromH;
+	/**
+	 * @type {number}
+	 */
+	toH;
+	get from() {
+		return new Date(this.now + this.fromH * 3600e3);
+	}
+	get to() {
+		return new Date(this.now + this.toH * 3600e3);
+	}
+	/**
+	 * @type {string[]}
+	 */
+	locations;
+	/**
+	 * @type {string[]}
+	 */
+	description;
+
+	/**
+	 * @param {EDTFilter} options
+	 */
+	constructor(options) {
+		this.now = options.now || Date.now();
+		this.fromH = options.fromH ?? -0.6;
+		this.toH = options.toH ?? 5;
+		if (options.locations) this.locations = options.locations;
+		if (options.description) this.description = options.description;
+	}
+
+	/**
+	 * @param {EDTEvent} event
+	 */
+	matchFilter(event) {
+		if (event.DTEND < this.from || this.to < event.DTSTART)
+			return false;
+		if (this.locations && !this.locations.find(l => event.LOCATION.includes(l)))
+			return false;
+		if (this.description && !this.description.find(s => event.DESCRIPTION.includes(s)))
+			return false;
+
+		return true;
 	}
 }
