@@ -323,7 +323,7 @@ export class EDTManager {
 
 		try {
 			bot.consoleLogger.log('EDT Downloading...');
-			const edtDownloaded = await Promise.all(this.EDTs2022.filter(async EDT => {
+			const edtDownloaded = (await Promise.all(this.EDTs2022.map(async EDT => {
 				const name = EDT[0];
 				this.downloadStatus.edtDownloading.push(name);
 				var downloaded = false;
@@ -332,8 +332,8 @@ export class EDTManager {
 				}
 				this.downloadStatus.edtDownloaded.push(name);
 				this.downloadStatus.edtDownloading.splice(this.downloadStatus.edtDownloading.indexOf(name), 1);
-				return downloaded
-			}));
+				return { EDT: name, downloaded };
+			}))).filter(EDT_dl => EDT_dl.downloaded).map(EDT_dl => EDT_dl.EDT);
 			bot.consoleLogger.log(`EDT Downloaded (${edtDownloaded.length}/${this.EDTs2022.length}) => reloading`);
 			this.downloadStatus.downloadEndedAt = new Date();
 			this.reloadEDT();
