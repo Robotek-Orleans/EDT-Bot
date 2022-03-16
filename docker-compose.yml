@@ -1,7 +1,7 @@
 version: "3"
 services:
   node:
-    image: "node:17-alpine"
+    image: "node:16-alpine"
     restart: always
     user: "node"
     working_dir: /home/node/app
@@ -17,7 +17,7 @@ services:
     depends_on:
       - db
   db:
-    image: postgres:latest
+    image: postgres:alpine
     restart: always
     env_file:
       - database.env

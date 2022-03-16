@@ -34,7 +34,7 @@ export default {
 			 */
 			async execute(cmdData) {
 				if (await manager.downloadEDTs())
-					return new EmbedMaker('EDT', 'Téléchargement terminé');
+					return new EmbedMaker('EDT', `Téléchargement terminé  (${manager.currentEDT.length}/${manager.EDTs2022.length})`);
 				else
 					return new EmbedMaker('EDT', 'Impossible de télécharger les emplois du temps.');
 			}
@@ -52,14 +52,16 @@ export default {
 				const dlEnded = manager.downloadStatus.downloadEndedAt;
 				const downloading = dlStarted && (!dlEnded || (dlEnded < dlStarted));
 				if (downloading) {
-					description += `\nLe téléchargement a commencé le ${getDiscordTimestamp(dlEnded)}`;
+					description += `\nLe téléchargement a commencé le ${getDiscordTimestamp(dlStarted)}`;
 
 					if (manager.downloadStatus.downloaded)
 						bot.consoleLogger.error(`EDT downloading and downloaded`, dlStarted, dlEnded);
 					if (manager.downloadStatus.edtDownloaded)
 						description += `\nEDT téléchargés : ` + manager.downloadStatus.edtDownloaded.join(', ');
+					if (manager.downloadStatus.edtDownloading)
+						description += `\nEDT à télécharger : ` + manager.downloadStatus.edtDownloading.join(', ');
 				} else if (dlEnded) {
-					description += `\nLe téléchargement a terminé le ${getDiscordTimestamp(dlEnded)}`;
+					description += `\nLe téléchargement s'est terminé le ${getDiscordTimestamp(dlEnded)}`;
 					if (manager.downloadStatus.downloaded)
 						description += ' (Succès)';
 					else
@@ -196,7 +198,7 @@ export class EDTManager {
 	 */
 	lastUpdate;
 	/**
-	 * @type {{downloaded: boolean, edtDownloaded: string[], downloadEndedAt: Date, downloadStartedAt: Date }}
+	 * @type {{downloaded: boolean, edtDownloaded: string[], edtDownloading: string[], downloadEndedAt: Date, downloadStartedAt: Date }}
 	 */
 	downloadStatus = { downloaded: false };
 
@@ -253,8 +255,15 @@ export class EDTManager {
 	}
 
 	mkEDTDir() {
-		if (!fs.existsSync(process.env.EDT_DIR)) {
-			fs.mkdirSync(process.env.EDT_DIR, { recursive: true });
+		try {
+			if (!fs.existsSync(process.env.EDT_DIR)) {
+				fs.mkdirSync(process.env.EDT_DIR, { recursive: true });
+			}
+			return true;
+		}
+		catch (err) {
+			bot.consoleLogger.error(`Can't create EDT directory`, process.env.EDT_DIR, err);
+			return false;
 		}
 	}
 
@@ -267,12 +276,13 @@ export class EDTManager {
 	 * @param {string} ressource
 	 */
 	downloadEDT(name, ressource) {
-		const url = process.env.EDT_EXPORT.replace('{resources}', ressource);
+		const url = process.env.EDT_URL.replace('{resources}', ressource);
 
 		return new Promise((res, rej) => {
+			setTimeout(() => res(false), 5e3);
 			const req = https.get(url, result => {
 				if (result.statusCode !== 200) {
-					rej(`error: ${result.statusCode} : ` + result.statusMessage);
+					rej(`error downloading ${name}: ${result.statusCode} : ` + result.statusMessage);
 					return;
 				}
 				/**
@@ -306,17 +316,28 @@ export class EDTManager {
 		this.downloadStatus.downloadStartedAt = new Date();
 		this.downloadStatus.downloaded = false;
 		this.downloadStatus.edtDownloaded = [];
+		this.downloadStatus.edtDownloading = [];
 
-		this.mkEDTDir();
+		if (!this.mkEDTDir())
+			return;
 
 		try {
 			bot.consoleLogger.log('EDT Downloading...');
-			await Promise.all(this.EDTs2022.map(async EDT => { await this.downloadEDT(EDT[0], EDT[1]); this.downloadStatus.edtDownloaded.push(EDT); }));
-			bot.consoleLogger.log('EDT Downloaded => reloading');
+			const edtDownloaded = await Promise.all(this.EDTs2022.filter(async EDT => {
+				const name = EDT[0];
+				this.downloadStatus.edtDownloading.push(name);
+				var downloaded = false;
+				for (let i = 0; i < 2 && !downloaded; i++) {
+					downloaded = await this.downloadEDT(EDT[0], EDT[1]);
+				}
+				this.downloadStatus.edtDownloaded.push(name);
+				this.downloadStatus.edtDownloading.splice(this.downloadStatus.edtDownloading.indexOf(name), 1);
+				return downloaded
+			}));
+			bot.consoleLogger.log(`EDT Downloaded (${edtDownloaded.length}/${this.EDTs2022.length}) => reloading`);
 			this.downloadStatus.downloadEndedAt = new Date();
 			this.reloadEDT();
 
-			bot.consoleLogger.log('EDT Downloaded');
 			this.downloadStatus.downloaded = true;
 			return true;
 		} catch (err) {
@@ -339,19 +360,20 @@ export class EDTManager {
 	}
 
 	reloadEDT() {
-		this.mkEDTDir();
+		if (!this.mkEDTDir())
+			return;
 		const edtFiles = fs.readdirSync(process.env.EDT_DIR).filter(f => f.endsWith('.vcs'));
 		this.currentEDT = edtFiles.map(file => new EDTSpe(file));
 		this.lastUpdate = this.currentEDT[0]?.DTSTAMP;
 
-		if (this.currentEDT.find(edt => Math.abs(edt.DTSTAMP.getTime() - this.lastUpdate.getTime()) >= 5000)) {
+		if (this.currentEDT.find(edt => Math.abs(edt.DTSTAMP.getTime() - this.lastUpdate?.getTime()) >= 5000)) {
 			bot.consoleLogger.warn(`EDT have different DTSTAMP`, this.currentEDT.reduce((p, c) => { p[c.name] = c.DTSTAMP; return p; }, {}));
 		}
 		if (this.isEDTOld()) {
 			bot.consoleLogger.log(`EDT Reloaded but too old (${this.downloadStatus.lastUpdate})`);
 			this.downloadEDTs();
 		} else
-			bot.consoleLogger.log(`EDT Reloaded`);
+			bot.consoleLogger.log(`EDT Reloaded (${this.currentEDT.length}/${this.EDTs2022.length})`);
 	}
 
 	isEDTOld() {

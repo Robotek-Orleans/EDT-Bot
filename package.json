@@ -6,6 +6,7 @@
   "author": {
     "name": "Jiogo18"
   },
+  "license": "MIT",
   "scripts": {
     "test": "node index.js WIP",
     "start": "node index.js"

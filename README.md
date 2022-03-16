@@ -16,9 +16,9 @@ Le filter peut contenir :
 # Lancer avec Docker
 
 - `git clone https://github.com/Robotek-Orleans/EDT-Bot`
+- `cd EDT-Bot`
 - `npm install`
 - Créer les fichiers database.env et EDT-Bot.env :
   - database.env contient POSTGRES_PASSWORD, POSTGRES_USER, POSTGRES_DB
   - EDT-Bot.env contient DISCORD_TOKEN, BOT_ID, DATABASE_URL, EDT_URL, EDT_DIR
-- `cd EDT-Bot`
 - `sudo docker-compose up --build`
