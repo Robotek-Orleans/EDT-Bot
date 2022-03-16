@@ -93,7 +93,7 @@ export default {
 				description = [matchDescription[1].replace(/-/g, ' ')];
 			filter = filter.replace(matchDescription[0], ' ');
 		}
-		filter = filter.replace(/ *$/, '');
+		filter = filter.replace(/ *$/, '').replace(/^ */, '');
 
 		var salles = getSalles({ any: filter });
 		if (salles.length === 0) {
@@ -213,9 +213,10 @@ function getSallesInfo(filter) {
 	const events = manager.getRecentEvents(filter);
 	warnIfSalleUnknown(events);
 
-	const occupee = (filter.locations || SALLES).map(salle => manager.joinEventsPeriod(events.filter(ev => ev.LOCATION.includes(salle.name)))
+	const salles = filter.locations || SALLES.map(salle => salle.name);
+	const occupee = salles.map(salle => manager.joinEventsPeriod(events.filter(ev => ev.LOCATION.includes(salle)))
 		.map(p => `de ${getDiscordTimestamp(p.DTSTART, 't')} à ${getDiscordTimestamp(p.DTEND, 't')}`).join(', '));
-	return (filter.locations || SALLES).map((salle, i) => salle.name + ' : ' + (occupee[i] ? `Occupée ${occupee[i]}` : `Libre`));
+	return salles.map((salle, i) => salle + ' : ' + (occupee[i] ? `Occupée ${occupee[i]}` : `Libre`));
 }
 
 /**
