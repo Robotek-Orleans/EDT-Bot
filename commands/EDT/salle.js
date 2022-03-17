@@ -38,20 +38,20 @@ export default {
 	execute(cmdData) {
 		var now = Date.now();
 
-		const events = manager.getRecentEvents(new EDTFilter({ now }), cmdData);
-		warnIfSalleUnknown(events);
+		const salles_info = getSallesInfo(new EDTFilter({ now }));
 
-		var embed = new EmbedMaker('Salle EDT', `EDTs téléchargés il y a ${getDurationTime(now - manager.lastUpdate?.getTime())}.`);
-		const one_hour = 1.25 * 3600e3;
-		var salles_occupees =
-			"Il y a 1 h: " + (events.filter(ev => ev.isDuringEvent(new Date(now - one_hour))).map(e => e.LOCATION.join?.(',') || e.LOCATION).join(', ') || 'Pas de cours') +
-			"\nMaintenant: " + (events.filter(ev => ev.isDuringEvent(new Date(now))).map(e => e.LOCATION.join?.(',') || e.LOCATION).join(', ') || 'Pas de cours') +
-			"\nDans 1 h: " + (events.filter(ev => ev.isDuringEvent(new Date(now + one_hour))).map(e => e.LOCATION.join?.(',') || e.LOCATION).join(', ') || 'Pas de cours') +
-			"\nDans 2 h: " + (events.filter(ev => ev.isDuringEvent(new Date(now + 2 * one_hour))).map(e => e.LOCATION.join?.(',') || e.LOCATION).join(', ') || 'Pas de cours') +
-			"\nDans 3 h: " + (events.filter(ev => ev.isDuringEvent(new Date(now + 3 * one_hour))).map(e => e.LOCATION.join?.(',') || e.LOCATION).join(', ') || 'Pas de cours') +
-			"\nDans 4 h: " + (events.filter(ev => ev.isDuringEvent(new Date(now + 4 * one_hour))).map(e => e.LOCATION.join?.(',') || e.LOCATION).join(', ') || 'Pas de cours')
-		embed.addField('Salles occupées', salles_occupees || "Aucune d'ici 4 heures", true)
-		return embed;
+		var description = `EDTs téléchargés il y a ${getDurationTime(now - manager.lastUpdate?.getTime())}.`;
+		const max_size = 2048 - '...'.length;
+		for (let i = 0; i < salles_info.length; i++) {
+			const salle_info = salles_info[i];
+			if (description.length + salle_info.length <= max_size)
+				description += '\n' + salle_info;
+			else {
+				description += '\n...';
+				break;
+			}
+		}
+		return new EmbedMaker('Salle EDT', description);
 	},
 
 	/**

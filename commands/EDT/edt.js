@@ -366,7 +366,7 @@ export class EDTManager {
 		this.currentEDT = edtFiles.map(file => new EDTSpe(file));
 		this.lastUpdate = this.currentEDT[0]?.DTSTAMP;
 
-		if (this.currentEDT.find(edt => Math.abs(edt.DTSTAMP.getTime() - this.lastUpdate?.getTime()) >= 5000)) {
+		if (this.currentEDT.find(edt => Math.abs(edt.DTSTAMP.getTime() - this.lastUpdate?.getTime()) >= 10000)) {
 			bot.consoleLogger.warn(`EDT have different DTSTAMP`, this.currentEDT.reduce((p, c) => { p[c.name] = c.DTSTAMP; return p; }, {}));
 		}
 		if (this.isEDTOld()) {
