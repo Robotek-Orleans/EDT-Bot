@@ -215,10 +215,10 @@ export class EDTManager {
 		return [
 			['A1', '4810'],
 			['A1-STI2D', '13152'],
-			// ['A1-STI2D-A', '796'],
+			['A1-STI2D-A', '796'],
 			['A2', '3164'],
 			['A2-STI2D', '799'],
-			// ['A2-STI2D-A', '800'],
+			['A2-STI2D-A', '800'],
 			['A3-GC', '28501'],
 			['A3-GPSE', '28550'],
 			['A3-ICM', '8018'],
@@ -238,7 +238,7 @@ export class EDTManager {
 			['A5-PROD', '6521'],
 			['A5-SB', '10326'],
 			['A5-TEAM', '3176'],
-			// ['A6-CDE', '23609'],
+			['A6-CDE', '23609'],
 			['IoT', '23'],
 			['Master-AESM', '1656'],
 		];
@@ -278,17 +278,25 @@ export class EDTManager {
 		return new Promise((res, rej) => {
 			setTimeout(() => res(false), 5e3);
 			const req = https.get(url, result => {
-				if (result.statusCode !== 200) {
-					rej(`error downloading ${name} (${result.statusCode} : ${result.statusMessage}) "${url}"`);
-					return;
+				switch (result.statusCode) {
+					case 200:
+						break;
+					case 417:
+						// no events
+						console.log(`Can't download ${name} (${ressource}) because there is no events (error 417) => skip`);
+						res(false);
+						return;
+					default:
+						rej(`error downloading ${name} (${result.statusCode} : ${result.statusMessage}) "${url}"`);
+						return;
 				}
 				/**
 				 * @type {Buffer}
 				 */
 				var data = undefined;
 				result.on('data', /**
-								 @param {Buffer} chunk
-							   */
+									 @param {Buffer} chunk
+								   */
 					chunk => {
 						if (data)
 							data += chunk;
@@ -301,7 +309,13 @@ export class EDTManager {
 						}
 					});
 			});
-			req.on('error', (e) => rej(`error downloading ${name} (${e}) "${url}"`));
+			req.on('error', (e) => {
+				if (e.message.includes('EPROTO') && e.message.includes('SSL routines')) {
+					rej('SSL error, try to *downgrade* your nodejs version to v16.x');
+				} else {
+					rej(`error downloading ${name} (${e}) "${url}"`);
+				}
+			});
 			req.on('close', rej);
 			req.end();
 		});
