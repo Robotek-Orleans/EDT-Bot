@@ -1,9 +1,8 @@
 version: "3"
 services:
   node:
-    image: "node:16-alpine"
+    image: "node:current-alpine3.15"
     restart: always
-    user: "70"
     working_dir: /home/node/app
     env_file:
       - EDT-Bot.env

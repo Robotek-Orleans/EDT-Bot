@@ -1,7 +1,7 @@
 import { EmbedMaker } from '../../lib/messageMaker.js';
 import { Snowflake } from '../../lib/snowflake.js';
 import { getFrenchDate } from '../../lib/date.js';
-import { Channel, Guild, Role, User } from 'discord.js';
+import { BaseChannel, Guild, Role, User } from 'discord.js';
 import { CommandLevelOptions, ReceivedCommand } from '../../bot/command/received.js';
 
 const snowflakeLink = 'https://discord.js.org/#/docs/main/stable/typedef/Snowflake';
@@ -96,7 +96,7 @@ function makeError(description) {
 
 /**
  * Get a mention/name of the target
- * @param {string|Guild|Channel|User|Role} target The target
+ * @param {string|Guild|BaseChannel|User|Role} target The target
  * @returns {string} A mention or a name to identify the target
  */
 function getTargetName(target) {
@@ -117,7 +117,7 @@ function getTargetName(target) {
 /**
  * Get basic informations for the target
  * @param {string} targetTitle The type of the target
- * @param {Guild|Channel|User|Role} target The target
+ * @param {Guild|BaseChannel|User|Role} target The target
  */
 function getBasicInfo(targetTitle, target) {
 	const snowflake = new Snowflake(target.id);
@@ -135,7 +135,7 @@ function getBasicInfo(targetTitle, target) {
 /**
  * Get inforamtions about the target and his snowflake
  * @param {string} targetTitle The type of the target
- * @param {Guild|Channel|User|Role} target The target
+ * @param {Guild|BaseChannel|User|Role} target The target
  */
 function getInfo(targetTitle, target) {
 	const snowflake = new Snowflake(target.id);
@@ -191,7 +191,7 @@ async function executeInfoChannel(cmdData, levelOptions) {
 	var channel;
 	try {
 		channel = await cmdData.bot.channels.fetch(channel_id);
-	} catch (error) {}
+	} catch (error) { }
 	if (!channel) return makeMessage(`Le channel \`<#${channel_id}>\` est introuvable`);
 
 	var channelTitle = 'du channel';

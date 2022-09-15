@@ -1,13 +1,24 @@
 import { SecurityPlaces, SecurityCommand } from './security.js';
 import { EmbedMaker } from '../../lib/messageMaker.js';
 import { CommandLevelOptions, CommandContext, ReceivedCommand } from './received.js';
-import { Constants } from 'discord.js';
+import { ApplicationCommandOptionType, ApplicationCommand as DiscordApplicationCommand, ApplicationCommandType } from 'discord.js';
 import Discord from 'discord.js';
 import { indentString, indentNextLines, strToFlatStr } from '../../lib/utils.js';
 
 export const ApplicationCommandOptionTypes = {
 	APPLICATION_COMMAND: 0,
-	...Constants.ApplicationCommandOptionTypes,
+	SUB_COMMAND: ApplicationCommandOptionType.Subcommand,
+	SUB_COMMAND_GROUP: ApplicationCommandOptionType.SubcommandGroup,
+	STRING: ApplicationCommandOptionType.String,
+	INTEGER: ApplicationCommandOptionType.Integer,
+	BOOLEAN: ApplicationCommandOptionType.Boolean,
+	USER: ApplicationCommandOptionType.User,
+	CHANNEL: ApplicationCommandOptionType.Channel,
+	ROLE: ApplicationCommandOptionType.Role,
+	MENTIONABLE: ApplicationCommandOptionType.Mentionable,
+	NUMBER: ApplicationCommandOptionType.Number,
+	ATTACHMENT: ApplicationCommandOptionType.Attachment
+
 };
 
 class AbstractCommandOption {
@@ -17,20 +28,20 @@ class AbstractCommandOption {
 	get type() {
 		throw `AbstractCommandOption is an abstract class`;
 	}
-	isAllowedOptionType() {}
+	isAllowedOptionType() { }
 	description;
 	/**
 	 * Get the full Help for this command
 	 * @param {CommandContext} context The context where you need this help
 	 * @returns {string} The description
 	 */
-	getHelpDescription(context) {}
+	getHelpDescription(context) { }
 	/**
 	 * Get the description of this command
 	 * @param {CommandContext} context
 	 * @returns {string} The description in one (or two) line
 	 */
-	getHelpSmallDescription(context) {}
+	getHelpSmallDescription(context) { }
 
 	parent;
 
@@ -79,7 +90,7 @@ class AbstractCommandOption {
 
 	/**
 	 * Is this command match with an other command?
-	 * @param {DiscordInteractionStored} command
+	 * @param {DiscordApplicationCommand} command
 	 */
 	matchWith(command) {
 		if (!command) return false;
@@ -96,14 +107,14 @@ class CommandParameter extends AbstractCommandOption {
 		return false;
 	} //aucun autorisé en option
 	static Types = [
-		Constants.ApplicationCommandOptionTypes.STRING,
-		Constants.ApplicationCommandOptionTypes.INTEGER,
-		Constants.ApplicationCommandOptionTypes.BOOLEAN,
-		Constants.ApplicationCommandOptionTypes.USER,
-		Constants.ApplicationCommandOptionTypes.CHANNEL,
-		Constants.ApplicationCommandOptionTypes.ROLE,
-		Constants.ApplicationCommandOptionTypes.MENTIONABLE,
-		Constants.ApplicationCommandOptionTypes.NUMBER,
+		ApplicationCommandOptionTypes.STRING,
+		ApplicationCommandOptionTypes.INTEGER,
+		ApplicationCommandOptionTypes.BOOLEAN,
+		ApplicationCommandOptionTypes.USER,
+		ApplicationCommandOptionTypes.CHANNEL,
+		ApplicationCommandOptionTypes.ROLE,
+		ApplicationCommandOptionTypes.MENTIONABLE,
+		ApplicationCommandOptionTypes.NUMBER,
 	];
 	required;
 	/**
@@ -181,7 +192,7 @@ class CommandParameter extends AbstractCommandOption {
 
 	/**
 	 * Is this command match with an other command?
-	 * @param {DiscordInteractionStored} command
+	 * @param {DiscordApplicationCommand} command
 	 */
 	matchWith(command) {
 		if (!super.matchWith(command)) return false;
@@ -215,7 +226,7 @@ class AbstractCommandExtendable extends AbstractCommandOption {
 	 * @type {(AbstractCommandExtendable|CommandParameter)[]}
 	 */
 	get discordOptions() {
-		return [...this.options, ...this.parameters];
+		return [...this.options.filter(option => option.security.interaction !== false && !option.security.hidden), ...this.parameters];
 	}
 	/**
 	 * Get the full Help for this command
@@ -271,9 +282,9 @@ class AbstractCommandExtendable extends AbstractCommandOption {
 
 			var subCommand;
 			var isParameter = false;
-			if (subType == Constants.ApplicationCommandOptionTypes.SUB_COMMAND) {
+			if (subType == ApplicationCommandOptionTypes.SUB_COMMAND) {
 				subCommand = new ApplicationSubCommand(subCommandConfig, this);
-			} else if (subType == Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP) {
+			} else if (subType == ApplicationCommandOptionTypes.SUB_COMMAND_GROUP) {
 				subCommand = new ApplicationSubCommandGroup(subCommandConfig, this);
 			} else if (CommandParameter.Types.includes(subType)) {
 				subCommand = new CommandParameter(subCommandConfig, this);
@@ -298,14 +309,13 @@ class AbstractCommandExtendable extends AbstractCommandOption {
 		return {
 			...super.getJSON(),
 			options: [
-				...this.options.filter(option => option.security.interaction !== false && !option.security.hidden).map(option => option.getJSON()),
-				...this.parameters.map(option => option.getJSON()),
+				...this.discordOptions.map(option => option.getJSON()),
 			],
 		};
 	}
 	/**
 	 * Is this command match with an other command?
-	 * @param {DiscordInteractionStored} command
+	 * @param {DiscordApplicationCommand} command
 	 */
 	matchWith(command) {
 		if (!super.matchWith(command)) return false;
@@ -315,7 +325,9 @@ class AbstractCommandExtendable extends AbstractCommandOption {
 			if (discordOptions.length != (command.options?.length || 0)) return false;
 			for (const oIntern of discordOptions) {
 				const oExtern = command.options.find(o => o.name == oIntern.name);
-				if (!oIntern.matchWith(oExtern)) return false;
+				if (!oIntern.matchWith(oExtern)) {
+					return false;
+				}
 			}
 		}
 		return true;
@@ -378,7 +390,7 @@ class AbstractCommandExtendable extends AbstractCommandOption {
 
 class ApplicationSubCommand extends AbstractCommandExtendable {
 	get type() {
-		return Constants.ApplicationCommandOptionTypes.SUB_COMMAND;
+		return ApplicationCommandOptionTypes.SUB_COMMAND;
 	}
 	/**
 	 * @param {ApplicationCommandOptionTypes} commandOptionType
@@ -398,13 +410,13 @@ class ApplicationSubCommand extends AbstractCommandExtendable {
 
 class ApplicationSubCommandGroup extends AbstractCommandExtendable {
 	get type() {
-		return Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP;
+		return ApplicationCommandOptionTypes.SUB_COMMAND_GROUP;
 	}
 	/**
 	 * @param {ApplicationCommandOptionTypes} commandOptionType
 	 */
 	isAllowedOptionType(commandOptionType) {
-		return commandOptionType == Constants.ApplicationCommandOptionTypes.SUB_COMMAND;
+		return commandOptionType == ApplicationCommandOptionTypes.SUB_COMMAND;
 	}
 }
 
@@ -416,7 +428,7 @@ class ApplicationCommand extends AbstractCommandExtendable {
 	 * @param {ApplicationCommandOptionTypes} type
 	 */
 	isAllowedOptionType(type) {
-		return Object.values(Constants.ApplicationCommandOptionTypes).includes(type);
+		return Object.values(ApplicationCommandOptionTypes).includes(type);
 	}
 	get interaction() {
 		return this.security.interaction;
@@ -471,7 +483,7 @@ class ApplicationCommand extends AbstractCommandExtendable {
 
 	getJSON() {
 		//the JSON Param used by the Discord API
-		return { data: super.getJSON() };
+		return { ...super.getJSON(), type: ApplicationCommandType.ChatInput };
 	}
 }
 

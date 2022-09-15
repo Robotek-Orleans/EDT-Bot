@@ -1,4 +1,4 @@
-import { Message, MessageActionRow, MessageButton, MessageComponentInteraction, MessageEmbed, MessagePayload } from 'discord.js';
+import { Message, ActionRowBuilder, ButtonBuilder, MessageComponentInteraction, MessagePayload, EmbedBuilder } from 'discord.js';
 import { ReceivedCommand } from './received.js';
 
 export class MessageInteraction {
@@ -71,13 +71,13 @@ export class MessageInteraction {
 
 export class MessageInteractionBox extends MessageInteraction {
 	/**
-	 * @param {MessageEmbed} embed
-	 * @param {MessageButton[]} buttons
+	 * @param {EmbedBuilder} embed
+	 * @param {ButtonBuilder[]} buttons
 	 */
 	async sendMessageBox(embed, buttons) {
 		var components = [];
 		if (buttons) {
-			const messageAction = new MessageActionRow();
+			const messageAction = new ActionRowBuilder();
 			buttons.forEach(button => messageAction.addComponents(button));
 			components.push(messageAction);
 		}
@@ -90,7 +90,7 @@ export class MessageInteractionBox extends MessageInteraction {
 	}
 
 	async setDisabled(disable = true) {
-		this.answerMessage.components.forEach(messageAction => messageAction.components.forEach(component => component.setDisabled(disable)));
+		this.answerMessage.components.forEach(messageAction => messageAction.components.forEach(component => ButtonBuilder.from(component).setDisabled(disable)));
 		return await super.sendAnswer(this.answerMessage);
 	}
 }

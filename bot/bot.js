@@ -1,4 +1,4 @@
-import Discord, { Client, Constants, Message, Intents, LimitedCollection } from 'discord.js';
+import Discord, { Client, Message, GatewayIntentBits, Partials, LimitedCollection, InteractionType, Events, Sweepers } from 'discord.js';
 
 import ConsoleLogger from './ConsoleLogger.js';
 import AppManager from './AppManager.js';
@@ -28,12 +28,13 @@ export default class DiscordBot extends Client {
 	constructor() {
 		super({
 			intents: [
-				Intents.FLAGS.GUILDS,
-				Intents.FLAGS.GUILD_MESSAGES,
-				Intents.FLAGS.DIRECT_MESSAGES,
-				Intents.FLAGS.GUILD_INTEGRATIONS,
+				GatewayIntentBits.Guilds,
+				GatewayIntentBits.GuildMessages,
+				GatewayIntentBits.MessageContent,
+				GatewayIntentBits.DirectMessages,
+				GatewayIntentBits.GuildIntegrations,
 			],
-			partials: ['CHANNEL'],
+			partials: [Partials.Channel],
 		});
 		this.consoleLogger = ConsoleLogger;
 		this.resetLocalId();
@@ -42,19 +43,19 @@ export default class DiscordBot extends Client {
 		this.interactionMgr = new InteractionManager(this);
 
 		this.onReady = new Promise(res => {
-			this.on(Constants.Events.CLIENT_READY, () => res(true));
-			this.on(Constants.Events.DISCONNECT, () => res(false));
+			this.on(Events.ClientReady, () => res(true));
+			this.on(Events.ShardDisconnect, () => res(false));
 		});
 
-		this.on(Constants.Events.CLIENT_READY, this.onBotConnected);
-		this.on(Constants.Events.MESSAGE_CREATE, onMessage);
+		this.on(Events.ClientReady, this.onBotConnected);
+		this.on(Events.MessageCreate, onMessage);
 		if (this.commandEnabled) {
-			this.on(Constants.Events.INTERACTION_CREATE, onInteraction);
+			this.on(Events.InteractionCreate, onInteraction);
 		} else {
 			console.warn('Commands are disabled by the bot'.yellow);
 		}
 		this.database = new PGDatabase(process.env.DATABASE_URL);
-		this.interactionsHandler = new LimitedCollection({ sweepInterval: 60, sweepFilter: LimitedCollection.filterByLifetime({ lifetime: 60 }) });
+		this.interactionsHandler = new LimitedCollection({ keepOverLimit: Sweepers.filterByLifetime({ lifetime: 60 }) });
 	}
 
 	start() {
@@ -157,7 +158,7 @@ function onInteraction(interaction) {
 	if (interaction.isMessageComponent()) {
 		const handler = this.interactionsHandler.get(interaction.message.id);
 		return handler?.(interaction);
-	} else if (!interaction?.isCommand()) {
+	} else if (!interaction || interaction.type != InteractionType.ApplicationCommand) {
 		if (process.env.WIPOnly) console.warn(`Interaction n'est pas une commande :`, interaction);
 		return;
 	}

@@ -1,6 +1,6 @@
 import { MessageMaker, EmbedMaker } from '../../lib/messageMaker.js';
 import { splitCommand } from '../../lib/commandTools.js';
-import { Channel, Guild, Message, User, Constants, CommandInteraction, MessagePayload } from 'discord.js';
+import { BaseChannel, Guild, Message, User, Constants, CommandInteraction, MessagePayload } from 'discord.js';
 import DiscordBot from '../bot.js';
 import { ApplicationCommandOptionTypes } from './commandStored.js';
 
@@ -262,20 +262,20 @@ export class CommandContext {
 		this.bot = bot;
 	}
 	/** @return {string} */
-	get guild_id() {}
+	get guild_id() { }
 	getCacheGuild() {
 		return this.bot.guilds.cache.get(this.guild_id);
 	}
 	/** @return {Promise<Guild>} */
-	getGuild() {}
+	getGuild() { }
 	/** @return {string} */
-	get channel_id() {}
-	/** @return {Promise<Channel>} */
-	getChannel() {}
+	get channel_id() { }
+	/** @return {Promise<BaseChannel>} */
+	getChannel() { }
 	/**  @return {string} */
-	get author_id() {}
+	get author_id() { }
 	/** @return {User|import('discord-api-types').APIUser} */
-	getAuthor() {}
+	getAuthor() { }
 	getFullAuthor() {
 		return this.bot.users.fetch(this.author_id);
 	}
@@ -344,7 +344,7 @@ export class ReceivedCommand {
 	/**
 	 * @type {CommandInteraction|Message} The message or the interaction
 	 */
-	get commandSource() {}
+	get commandSource() { }
 	get id() {
 		return this.commandSource?.id;
 	}

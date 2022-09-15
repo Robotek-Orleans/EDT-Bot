@@ -1,6 +1,6 @@
-import { Collection } from 'discord.js';
+import { Collection, ApplicationCommand as DiscordApplicationCommand } from 'discord.js';
 import { SecurityPlaces } from '../command/security.js';
-import AppManager, { DiscordRequest } from '../AppManager.js';
+import AppManager from '../AppManager.js';
 import config from '../config.js';
 import DiscordBot from '../bot.js';
 import CommandStored from '../command/commandStored.js';
@@ -11,8 +11,8 @@ export default class InteractionManager {
 	get commands() {
 		return this.bot.commandMgr.commands;
 	}
-	interactionsOnline = new TemporaryList({ get: guild_id => AppManager.getCmdFrom(guild_id) }, 60000); //reset après une minute
-	interactionsOnlineGlobal = new TemporaryValue({ get: () => AppManager.getCmdFrom() }, 60000);
+	interactionsOnline = new TemporaryList({ get: guildId => AppManager.getCommands(guildId) }, 60000); //reset après une minute
+	interactionsOnlineGlobal = new TemporaryValue({ get: () => AppManager.getCommands() }, 60000);
 	interactionsPosted = new Collection(); //commandes postées
 
 	/**
@@ -34,7 +34,7 @@ export default class InteractionManager {
 	/**
 	 * Get interactions posted in the target
 	 * @param {string} targetId Id of the guild, `undefined` for global
-	 * @returns {Promise<[object]>} JSON de discord TODO: plus d'info
+	 * @returns {Promise<Collection<string, DiscordApplicationCommand>}
 	 */
 	async getCommandsOnline(targetId) {
 		return this.getGuildInteractionsRow(targetId).get();
@@ -43,7 +43,7 @@ export default class InteractionManager {
 	 * Get the interaction posted in the target
 	 * @param {string} commandName
 	 * @param {string} targetId
-	 * @returns {Promise<object>} JSON de discord TODO: plus d'info
+	 * @returns {Promise<DiscordApplicationCommand>}
 	 */
 	async getCommandOnline(commandName, targetId) {
 		const interactions = await this.getCommandsOnline(targetId);
@@ -54,11 +54,11 @@ export default class InteractionManager {
 	 * Post a command to Discord
 	 * Please note that `postCommand` isn't linked to `commandManager::loadCommand`
 	 * @param {CommandStored} command The command to post
-	 * @param {DiscordRequest} target The target were you want to post
+	 * @param {string} guildId The target were you want to post
 	 * @returns {Promise<boolean>} `true` if the command has been posted, `false` if it's not
 	 */
-	async postCommand(command, target) {
-		const targetId = target.path.match(/\d+/)?.[0];
+	async postCommand(command, guildId) {
+		const targetId = guildId || undefined;
 		const online = await this.getCommandOnline(command.name, targetId);
 		const matchWithOnline = online ? command.matchWith(online) : false;
 
@@ -71,7 +71,7 @@ export default class InteractionManager {
 		} else {
 			console.log(`L'Intéraction pour '${command.name}' n'existe pas encore dans ${targetId || 'global'}`.green);
 		}
-		const posted = await AppManager.postCommand(command, target);
+		const posted = await AppManager.postCommand(command, guildId);
 
 		//TODO database: this.resetCacheTimer(target);
 		this.getGuildInteractionsRow(targetId).resetSoon(1000);
@@ -86,8 +86,8 @@ export default class InteractionManager {
 	 * Post all commands to Discord
 	 */
 	async postCommands() {
-		const targetGlobal = AppManager.getTarget();
-		const targetPrivate = AppManager.getTarget(config.guild_test);
+		const targetGlobal = undefined;
+		const targetPrivate = config.guild_test;
 		var c = {
 			before: this.interactionsPosted.length,
 			after: 0,
@@ -158,11 +158,11 @@ export default class InteractionManager {
 	 * Delete a command for Discord interactions
 	 * Please note that this `deleteCommand` is not linked to `commandManager::removeCommand`
 	 * @param {CommandStored} command The command to delete
-	 * @param {Object} target Where you want to delete it
+	 * @param {string} guildId Where you want to delete it
 	 * @returns {Promise<boolean>} `true` if the command has been deleted, `false` if it's not
 	 */
-	async deleteCommand(command, target) {
-		const removed = await AppManager.deleteCommand(command, target);
+	async deleteCommand(command, guildId) {
+		const removed = await AppManager.deleteCommand(command, guildId);
 		//TODO: if(removed) this.resetCacheTimer(target);
 		this.interactionsPosted.delete(command.name);
 		return removed;
@@ -170,14 +170,14 @@ export default class InteractionManager {
 
 	/**
 	 * Clean all Discord interactions of the target
-	 * @param {string} targetId Where you want to clean
+	 * @param {string} guildId Where you want to clean
 	 */
-	async cleanCommands(targetId) {
-		const target = AppManager.getTarget(targetId);
+	async cleanCommands(guildId) {
+		const target = guildId || undefined;
 
-		const commandsOnline = await this.getCommandsOnline(targetId);
+		const commandsOnline = await this.getCommandsOnline(guildId);
 		if (!commandsOnline) {
-			console.warn(`Can't get commands for ${targetId ? targetId : 'Global'}`.yellow);
+			console.warn(`Can't get commands for ${guildId ? guildId : 'Global'}`.yellow);
 			return;
 		}
 
@@ -185,9 +185,9 @@ export default class InteractionManager {
 
 		await Promise.all(commandsCleaner);
 
-		const commandsRemnaining = this.getCommandsOnline(targetId);
+		const commandsRemnaining = this.getCommandsOnline(guildId);
 		if (commandsRemnaining.length) {
-			process.consoleLogger.commandError(`interaction clean "${targetId}"`, `${commandsRemnaining.length} Interactions remains`);
+			process.consoleLogger.commandError(`interaction clean "${guildId}"`, `${commandsRemnaining.length} Interactions remains`);
 		} else {
 			console.log(`All Interactions of ${target_id ? target_id : 'Global'} have been removed.`);
 		}

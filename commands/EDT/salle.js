@@ -61,17 +61,16 @@ export default {
 	executeAttribute(cmdData, levelOptions) {
 		var filter = levelOptions.options.map(o => o.value).join(' ');
 
-		const matchDansTemps = filter.match(/ *dans *(-?\d+) *([hHmj]) */);
+		const matchDansTemps = filter.match(/ *dans *(-?\d+) *([hmj]) */i);
 		var now = Date.now();
 		if (matchDansTemps) {
 			filter = filter.replace(matchDansTemps[0], ' ');
 			const temps = parseFloat(matchDansTemps[1]);
-			switch (matchDansTemps[2]) {
+			switch (matchDansTemps[2]?.toLocaleLowerCase()) {
 				case 'm':
 					now += 60e3 * temps;
 					break;
 				case 'h':
-				case 'H':
 					now += 3600e3 * temps;
 					break;
 				case 'j':
