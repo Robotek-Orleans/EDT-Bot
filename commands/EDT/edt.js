@@ -274,11 +274,16 @@ export class EDTManager {
 	 */
 	downloadEDT(name, ressource) {
 		const url = process.env.EDT_URL.replace('{resources}', ressource);
+		const urlObj = new URL(url);
+		const options = {
+			hostname: urlObj.hostname,
+			path: urlObj.pathname + urlObj.search,
+			rejectUnauthorized: false,
+		}
 
 		return new Promise((res, rej) => {
-			setTimeout(() => res(false), 5e3);
-			const req = https.get(url, result => {
-				switch (result.statusCode) {
+			const req = https.get(options, (response) => {
+				switch (response.statusCode) {
 					case 200:
 						break;
 					case 417:
@@ -287,37 +292,25 @@ export class EDTManager {
 						res(false);
 						return;
 					default:
-						rej(`error downloading ${name} (${result.statusCode} : ${result.statusMessage}) "${url}"`);
+						rej(`error downloading ${name} (${response.statusCode} : ${response.statusMessage}) ${url}`);
 						return;
 				}
-				/**
-				 * @type {Buffer}
-				 */
-				var data = undefined;
-				result.on('data', /**
-									 @param {Buffer} chunk
-								   */
-					chunk => {
-						if (data)
-							data += chunk;
-						else
-							data = chunk;
 
-						if (result.complete || data.includes('END:VCALENDAR')) {
-							fs.writeFileSync(this.getEDTPath(name), data.toString());
-							res(true);
-						}
-					});
+				var result = ''
+				response.on('data', chunk => result += chunk);
+				response.on('end', () => {
+					fs.writeFileSync(this.getEDTPath(name), result.toString());
+					res(true);
+				});
 			});
+
 			req.on('error', (e) => {
 				if (e.message.includes('EPROTO') && e.message.includes('SSL routines')) {
-					rej('SSL error, try to *downgrade* your nodejs version to v16.x');
+					rej(`SSL error, try to *downgrade* your nodejs version to v16.x : ${e.message}`);
 				} else {
-					rej(`error downloading ${name} (${e}) "${url}"`);
+					rej(`error downloading ${name} (${e}) ${url}`);
 				}
 			});
-			req.on('close', rej);
-			req.end();
 		});
 	}
 
@@ -352,7 +345,7 @@ export class EDTManager {
 			this.downloadStatus.downloaded = true;
 			return true;
 		} catch (err) {
-			bot.consoleLogger.error("EDT Can't be downloaded", err);
+			bot.consoleLogger.error(`EDT Can't be downloaded (${err})`);
 			this.downloadStatus.downloadEndedAt = new Date();
 			this.downloadStatus.downloaded = false;
 			return false;
@@ -381,7 +374,7 @@ export class EDTManager {
 			bot.consoleLogger.warn(`EDT have different DTSTAMP`, this.currentEDT.reduce((p, c) => { p[c.name] = c.DTSTAMP; return p; }, {}));
 		}
 		if (this.isEDTOld()) {
-			bot.consoleLogger.log(`EDT Reloaded but too old (${this.downloadStatus.lastUpdate})`);
+			bot.consoleLogger.log(`EDT Reloaded but too old (${this.downloadStatus.downloadStartedAt})`);
 			this.downloadEDTs();
 		} else
 			bot.consoleLogger.log(`EDT Reloaded (${this.currentEDT.length}/${this.EDTs2022.length})`);

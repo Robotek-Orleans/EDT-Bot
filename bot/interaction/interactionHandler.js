@@ -14,8 +14,11 @@ async function safeInteractionAnswer(cmdData) {
 	return setTimeout(async () => {
 		if (cmdData.answeredAt || cmdData.needAnswer == false) return;
 		console.warn(`Interaction is too long, an acknowledgement will be sent (for '/${cmdData.commandLine}')`);
-		await cmdData.interaction.deferReply(); //accepte l'intéraction (et attend le retour)
-	}, timeRemaining - 1500); //on a 3s pour répondre à l'interaction (et le bot peut être désyncro de 1s...)
+		try {
+			await cmdData.interaction.deferReply({ ephemeral: true }); //accepte l'intéraction (et attend le retour)
+		} catch (error) {
+		}
+	}, timeRemaining - 1000); //on a 3s pour répondre à l'interaction (et le bot peut être désyncro de 1s...)
 }
 
 /**
