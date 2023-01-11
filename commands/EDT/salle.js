@@ -28,7 +28,7 @@ export default {
 
 	options: [{
 		name: 'filtre',
-		description: `Filtrer des salles (exemple: 'Cab', 'F23', 'F 023', 'F30')`,
+		description: `Filtrer des salles (exemple: 'Cab', 'F23', 'F 023', 'F30', 'dans 2h')`,
 		type: 3
 	}],
 
@@ -127,6 +127,8 @@ export default {
 		SALLES.push(...SallesJson.CM.map(name => new Salle(name, 'CM')));
 		SALLES.push(...SallesJson.TD.map(name => new Salle(name, 'TD')));
 		SALLES.push(...SallesJson.TP.map(name => new Salle(name, 'TP')));
+		SALLES.push(...SallesJson.Vinci.map(name => new Salle(name, 'Vinci')));
+		SALLES.push(...SallesJson.Autre.map(name => new Salle(name, 'Autre')));
 		manager = bot.edtManager;
 	}
 }
@@ -209,7 +211,7 @@ function getSalleInfo(salle, now) {
  * @param {EDTFilter} filter
  */
 function getSallesInfo(filter) {
-	const events = manager.getRecentEvents(filter);
+	const events = manager.getRecentSallesEvents(filter);
 	warnIfSalleUnknown(events);
 
 	const salles = filter.locations || SALLES.map(salle => salle.name);

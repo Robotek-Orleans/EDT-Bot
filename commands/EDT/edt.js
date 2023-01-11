@@ -2,6 +2,7 @@ import DiscordBot from '../../bot/bot.js';
 import fs from 'fs';
 import { ReceivedCommand } from '../../bot/command/received.js';
 import https from 'https';
+import http from 'http';
 import { EmbedMaker } from '../../lib/messageMaker.js';
 import { getDiscordTimestamp } from '../../lib/date.js';
 
@@ -198,27 +199,41 @@ export class EDTManager {
 	 */
 	lastUpdate;
 	/**
+	 * @type {Date}
+	 */
+	lastUpdateSalles;
+	/**
 	 * @type {{downloaded: boolean, edtDownloaded: string[], edtDownloading: string[], downloadEndedAt: Date, downloadStartedAt: Date }}
 	 */
 	downloadStatus = { downloaded: false };
+	/**
+	 * @type {{downloaded: boolean, edtDownloaded: string[], edtDownloading: string[], downloadEndedAt: Date, downloadStartedAt: Date }}
+	 */
+	downloadStatusSalles = { downloaded: false };
 
 	/**
 	 * @type {EDTSpe[]}
 	 */
 	currentEDT = [];
 
+	/**
+	 * @type {EDTSpe[]}
+	 */
+	currentEDTSalles = [];
+
 	constructor() {
 		setTimeout(() => this.reloadEDT(), 1000);
+		setTimeout(() => this.reloadEDTSalle(), 1000);
 	}
 
 	get EDTs2022() {
 		return [
 			['A1', '4810'],
 			['A1-STI2D', '13152'],
-			['A1-STI2D-A', '796'],
+			// ['A1-STI2D-A', '796'],
 			['A2', '3164'],
 			['A2-STI2D', '799'],
-			['A2-STI2D-A', '800'],
+			// ['A2-STI2D-A', '800'],
 			['A3-GC', '28501'],
 			['A3-GPSE', '28550'],
 			['A3-ICM', '8018'],
@@ -238,7 +253,7 @@ export class EDTManager {
 			['A5-PROD', '6521'],
 			['A5-SB', '10326'],
 			['A5-TEAM', '3176'],
-			['A6-CDE', '23609'],
+			// ['A6-CDE', '23609'],
 			['IoT', '23'],
 			['Master-AESM', '1656'],
 		];
@@ -251,10 +266,64 @@ export class EDTManager {
 		 */
 	}
 
+	get EDTs2022Salles() {
+		return [
+			// 25201, 45918, 11732, 25374, 25173, 25151, 489, 25125, 25117, 25324, 25320, 25330, 25315, 25312, 25327, 25328, 25329, 25099, 25318, 25083, 25082, 2850, 25081, 25311, 25317, 25319, 13220, 193, 28696, 192, 25231, 7162, 446, 23573, 25323, 25321, 25094, 25093, 25087, 25314, 25136, 25133, 19347
+			['Blaise', '68845'],
+			['Cabannes', '69153'],
+			['Turing', '25201'],
+			['Hall-Accueil', '45918'],
+			['Hall-Galilee', '11732'],
+			// ['Personnel', '489'],
+			['L-37', '25329'],
+			['F022', '25125'],
+			['F023', '25117'],
+			['L-15', '25328'],
+			['F101', '25323'],
+			['F102', '25324'],
+			['F105', '25320'],
+			['F110', '25330'], // 12
+			['F111', '25315'],
+			['F201', '25312'],
+			['F202', '25321'],
+			['F301', '25327'],
+			['L-03', '25311'],
+			['L-10', '25317'],
+			['L-14', '25319'],
+			['L-16', '13220'],
+			['L-17', '23573'],
+			['L-38', '25314'],
+			['L001', '193'],
+			['L002', '192'],
+			['L003', '25231'],
+			['F112', '25136'],
+			['F113', '25133'],
+			['F114', '25374'],
+			['F115', '25173'],
+			['F116', '25151'],
+			['F215', '25099'],
+			['F216', '25094'],
+			['F217', '25093'],
+			['F218', '25087'],
+			['F302', '25318'],
+			['F316', '25083'],
+			['F317', '25082'],
+			['F317bis', '2850'],
+			['F318', '25081'],
+			// ['F-10', '7162'],
+			// ['F207', '446'],
+			// ['Salle29', '28696'],
+			// ['Salle43', '19347'],
+		];
+	}
+
 	mkEDTDir() {
 		try {
 			if (!fs.existsSync(process.env.EDT_DIR)) {
 				fs.mkdirSync(process.env.EDT_DIR, { recursive: true });
+			}
+			if (!fs.existsSync(process.env.EDT_DIR + '/Salles')) {
+				fs.mkdirSync(process.env.EDT_DIR + '/Salles', { recursive: true });
 			}
 			return true;
 		}
@@ -264,15 +333,16 @@ export class EDTManager {
 		}
 	}
 
-	getEDTPath(name) {
-		return process.env.EDT_DIR + `/EDT-Univ-Orleans-${name}.vcs`;
+	getEDTPath(name, salle = false) {
+		return process.env.EDT_DIR + (salle ? '/Salles' : '') + `/EDT-Univ-Orleans-${name}.vcs`;
 	}
 
 	/**
 	 * @param {string} name
 	 * @param {string} ressource
+	 * @param {boolean} salle
 	 */
-	downloadEDT(name, ressource) {
+	downloadEDT(name, ressource, salle = false) {
 		const url = process.env.EDT_URL.replace('{resources}', ressource);
 		const urlObj = new URL(url);
 		const options = {
@@ -299,7 +369,7 @@ export class EDTManager {
 				var result = ''
 				response.on('data', chunk => result += chunk);
 				response.on('end', () => {
-					fs.writeFileSync(this.getEDTPath(name), result.toString());
+					fs.writeFileSync(this.getEDTPath(name, salle), result.toString());
 					res(true);
 				});
 			});
@@ -352,6 +422,44 @@ export class EDTManager {
 		}
 	}
 
+	async downloadEDTsSalles() {
+		if (Date.now() - this.downloadStatusSalles.downloadStartedAt?.getTime() < 10000)
+			return;
+		this.downloadStatusSalles.downloadStartedAt = new Date();
+		this.downloadStatusSalles.downloaded = false;
+		this.downloadStatusSalles.edtDownloaded = [];
+		this.downloadStatusSalles.edtDownloading = [];
+
+		if (!this.mkEDTDir())
+			return;
+
+		try {
+			bot.consoleLogger.log('EDT Salles Downloading...');
+			const edtDownloaded = (await Promise.all(this.EDTs2022Salles.map(async EDT => {
+				const name = EDT[0];
+				this.downloadStatusSalles.edtDownloading.push(name);
+				var downloaded = false;
+				for (let i = 0; i < 2 && !downloaded; i++) {
+					downloaded = await this.downloadEDT(EDT[0], EDT[1], true);
+				}
+				this.downloadStatusSalles.edtDownloaded.push(name);
+				this.downloadStatusSalles.edtDownloading.splice(this.downloadStatusSalles.edtDownloading.indexOf(name), 1);
+				return { EDT: name, downloaded };
+			}))).filter(EDT_dl => EDT_dl.downloaded).map(EDT_dl => EDT_dl.EDT);
+			bot.consoleLogger.log(`EDT Downloaded (${edtDownloaded.length}/${this.EDTs2022Salles.length}) => reloading`);
+			this.downloadStatusSalles.downloadEndedAt = new Date();
+			this.reloadEDTSalle();
+
+			this.downloadStatusSalles.downloaded = true;
+			return true;
+		} catch (err) {
+			bot.consoleLogger.error(`EDT Can't be downloaded (${err})`);
+			this.downloadStatusSalles.downloadEndedAt = new Date();
+			this.downloadStatusSalles.downloaded = false;
+			return false;
+		}
+	}
+
 	/**
 	 * @param {ReceivedCommand} cmdData
 	 */
@@ -360,6 +468,17 @@ export class EDTManager {
 		await this.downloadEDTs();
 		if (lastUpdate < this.lastUpdate) {
 			cmdData.sendAnswer(new EmbedMaker('EDT', `Les emplois du temps ont été actualisés. Vous pouvez retenter votre commande.`));
+		}
+	}
+
+	/**
+	 * @param {ReceivedCommand} cmdData
+	 */
+	async downloadSallesAndAknowledge(cmdData) {
+		const lastUpdate = this.lastUpdateSalles;
+		await this.downloadEDTsSalles();
+		if (lastUpdate < this.lastUpdateSalles) {
+			cmdData.sendAnswer(new EmbedMaker('EDT', `Les emplois du temps de salles ont été actualisés. Vous pouvez retenter votre commande.`));
 		}
 	}
 
@@ -380,7 +499,28 @@ export class EDTManager {
 			bot.consoleLogger.log(`EDT Reloaded (${this.currentEDT.length}/${this.EDTs2022.length})`);
 	}
 
+	reloadEDTSalle() {
+		if (!this.mkEDTDir())
+			return;
+		const edtFiles = fs.readdirSync(process.env.EDT_DIR + '/Salles').filter(f => f.endsWith('.vcs'));
+		this.currentEDTSalles = edtFiles.map(file => new EDTSpe('Salles/' + file));
+		this.lastUpdateSalles = this.currentEDTSalles[0]?.DTSTAMP;
+
+		if (this.currentEDTSalles.find(edt => Math.abs(edt.DTSTAMP.getTime() - this.lastUpdateSalles?.getTime()) >= 10000)) {
+			bot.consoleLogger.warn(`EDT have different DTSTAMP`, this.currentEDTSalles.reduce((p, c) => { p[c.name] = c.DTSTAMP; return p; }, {}));
+		}
+		if (this.isEDTSallesOld()) {
+			bot.consoleLogger.log(`EDT Salles Reloaded but too old (${this.downloadStatus.downloadStartedAt})`);
+			this.downloadEDTsSalles();
+		} else
+			bot.consoleLogger.log(`EDT Salles Reloaded (${this.currentEDTSalles.length}/${this.EDTs2022Salles.length})`);
+	}
+
 	isEDTOld() {
+		return this.lastUpdate?.getTime() + 7 * 86400e3 < Date.now();
+	}
+
+	isEDTSallesOld() {
 		return this.lastUpdate?.getTime() + 7 * 86400e3 < Date.now();
 	}
 
@@ -394,6 +534,20 @@ export class EDTManager {
 		}
 
 		return this.currentEDT
+			.map(spe => spe.weekEvents.filter(event => filter.matchFilter(event)))
+			.reduce((a, b) => [...a, ...b], [])
+	}
+
+	/**
+	 * @param {EDTFilter} filter
+	 * @param {ReceivedCommand} cmdData
+	 */
+	getRecentSallesEvents(filter, cmdData) {
+		if (this.isEDTSallesOld()) {
+			this.downloadSallesAndAknowledge(cmdData); // Update after the command
+		}
+
+		return this.currentEDTSalles
 			.map(spe => spe.weekEvents.filter(event => filter.matchFilter(event)))
 			.reduce((a, b) => [...a, ...b], [])
 	}
