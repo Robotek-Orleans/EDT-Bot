@@ -34,8 +34,8 @@ export default {
 			 * @param {ReceivedCommand} cmdData
 			 */
 			async execute(cmdData) {
-				if (await Promise.all(manager.downloadEDTs(), manager.downloadEDTsSalles()))
-					return new EmbedMaker('EDT', `Téléchargement terminé  (${manager.currentEDT.length}/${manager.EDTs2022.length})`);
+				if (await Promise.all([manager.downloadEDTs(), manager.downloadEDTsSalles()]))
+					return new EmbedMaker('EDT', `Téléchargement terminé  (${manager.currentEDT.length}/${manager.EDTs2022.length} groupes et ${manager.currentEDTSalles.length}/${manager.EDTs2022Salles.length} salles)`);
 				else
 					return new EmbedMaker('EDT', 'Impossible de télécharger les emplois du temps.');
 			}
