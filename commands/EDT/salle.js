@@ -201,7 +201,7 @@ function getSalles(filter) {
  * @param {number} now
  */
 function getSalleInfo(salle, now) {
-	const occupee = manager.getRecentEvents(new EDTFilter({ locations: [salle.name], now }))
+	const occupee = manager.getRecentSallesEvents(new EDTFilter({ locations: [salle.name], now }))
 		.map(ev => `de ${getDiscordTimestamp(ev.DTSTART, 't')} à ${getDiscordTimestamp(ev.DTEND, 't')}`)
 		.join('\n');
 	return new EmbedMaker(`Salle ${salle.name} `, `Type: ${salle.type} `).addField('Occupée', occupee || "Libre pour au moins 4 heures", true);

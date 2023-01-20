@@ -34,7 +34,7 @@ export default {
 			 * @param {ReceivedCommand} cmdData
 			 */
 			async execute(cmdData) {
-				if (await manager.downloadEDTs())
+				if (await Promise.all(manager.downloadEDTs(), manager.downloadEDTsSalles()))
 					return new EmbedMaker('EDT', `Téléchargement terminé  (${manager.currentEDT.length}/${manager.EDTs2022.length})`);
 				else
 					return new EmbedMaker('EDT', 'Impossible de télécharger les emplois du temps.');
@@ -223,7 +223,7 @@ export class EDTManager {
 
 	constructor() {
 		setTimeout(() => this.reloadEDT(), 1000);
-		setTimeout(() => this.reloadEDTSalle(), 1000);
+		setTimeout(() => this.reloadEDTSalles(), 1000);
 	}
 
 	get EDTs2022() {
@@ -448,7 +448,7 @@ export class EDTManager {
 			}))).filter(EDT_dl => EDT_dl.downloaded).map(EDT_dl => EDT_dl.EDT);
 			bot.consoleLogger.log(`EDT Downloaded (${edtDownloaded.length}/${this.EDTs2022Salles.length}) => reloading`);
 			this.downloadStatusSalles.downloadEndedAt = new Date();
-			this.reloadEDTSalle();
+			this.reloadEDTSalles();
 
 			this.downloadStatusSalles.downloaded = true;
 			return true;
@@ -499,7 +499,7 @@ export class EDTManager {
 			bot.consoleLogger.log(`EDT Reloaded (${this.currentEDT.length}/${this.EDTs2022.length})`);
 	}
 
-	reloadEDTSalle() {
+	reloadEDTSalles() {
 		if (!this.mkEDTDir())
 			return;
 		const edtFiles = fs.readdirSync(process.env.EDT_DIR + '/Salles').filter(f => f.endsWith('.vcs'));
@@ -510,7 +510,7 @@ export class EDTManager {
 			bot.consoleLogger.warn(`EDT have different DTSTAMP`, this.currentEDTSalles.reduce((p, c) => { p[c.name] = c.DTSTAMP; return p; }, {}));
 		}
 		if (this.isEDTSallesOld()) {
-			bot.consoleLogger.log(`EDT Salles Reloaded but too old (${this.downloadStatus.downloadStartedAt})`);
+			bot.consoleLogger.log(`EDT Salles Reloaded but too old (${this.downloadStatusSalles.downloadStartedAt})`);
 			this.downloadEDTsSalles();
 		} else
 			bot.consoleLogger.log(`EDT Salles Reloaded (${this.currentEDTSalles.length}/${this.EDTs2022Salles.length})`);
@@ -521,7 +521,7 @@ export class EDTManager {
 	}
 
 	isEDTSallesOld() {
-		return this.lastUpdate?.getTime() + 7 * 86400e3 < Date.now();
+		return this.lastUpdateSalles?.getTime() + 7 * 86400e3 < Date.now();
 	}
 
 	/**
